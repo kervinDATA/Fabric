@@ -1,0 +1,11 @@
+CREATE VIEW view_test
+AS
+select
+    p.ProductKey,
+    p.ProductName,
+    p.ModelName,
+    s.OrderQuantity
+from lkLanding.dbo.sales2022 s
+JOIN lkLanding.dbo.product p
+ON s.ProductKey = p.ProductKey
+;
