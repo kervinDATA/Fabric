@@ -1,0 +1,17 @@
+CREATE PROCEDURE sp_UpdateFinalTable3
+AS
+BEGIN
+    -- Supprime les anciennes données pour éviter les doublons
+    TRUNCATE TABLE FinalTable;
+
+    -- Insère les nouvelles données depuis sales2022 et product
+    INSERT INTO FinalTable (OrderNumber, CustomerKey, ProductName, ModelName)
+    SELECT 
+        s.OrderNumber,
+        CAST(s.CustomerKey AS VARCHAR(50)) AS CustomerKey,  -- Assurer la compatibilité des types
+        p.ProductName,
+        p.ModelName
+    FROM lkLanding.dbo.sales2022 AS s
+    LEFT JOIN lkLanding.dbo.product AS p
+    ON p.ProductKey = s.ProductKey;
+END;
