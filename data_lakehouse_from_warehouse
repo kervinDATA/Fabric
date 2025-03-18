@@ -1,0 +1,3 @@
+select * from lkLanding.dbo.product
+
+select * from lkLanding.dbo.sales2022
