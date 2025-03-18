@@ -1,0 +1,20 @@
+CREATE TABLE FinalTable (
+    OrderNumber VARCHAR(50),
+    CustomerKey VARCHAR(50),
+    ProductName VARCHAR(255),
+    ModelName VARCHAR(255)
+);
+
+
+------------------------------ créer table avec CTAS ------------------------------------
+CREATE TABLE wh_product
+AS
+SELECT * FROM lkLanding.dbo.product ;
+
+
+CREATE TABLE wh_sales
+AS
+select * from lkLanding.dbo.sales2022 ;
+
+
+
