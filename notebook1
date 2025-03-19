@@ -1,0 +1,50 @@
+import pandas as pd
+
+df = spark.sql("SELECT * FROM MsLearn_Lakehouse.cars LIMIT 1000")
+display(df)
+
+
+***
+df = (spark
+.read
+#.format("csv")
+#.option("header", "true")
+.load("abfss://369b1ce1-d881-41b2-80b4-5b7f94ac0d73@onelake.dfs.fabric.microsoft.com/216f8df4-a220-451a-8618-11927009f3b3/Tables/cars")
+)
+display(df)
+# Files/cars.csv
+
+
+
+***
+df.printSchema()
+
+
+***
+df.createOrReplaceTempView("carsData")
+
+%%sql
+select * from carsData WHERE marque = 'Peugeot'
+
+
+***
+new_df = spark.sql("select * from carsData WHERE marque = 'Peugeot'")
+display(new_df)
+
+***
+new_df.write.format("delta").saveAsTable("carsData")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
