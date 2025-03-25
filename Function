@@ -1,0 +1,29 @@
+
+-- FUNCTION
+
+CREATE FUNCTION dbo.fn_Customer_FirstNameSearch ( @Firstname VARCHAR(20) = '' )
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT 
+    CustomerKey,
+    FirstName,
+    City
+    FROM DimCustomer
+    WHERE FirstName LIKE @firstname + '%' 
+) ;
+
+-- Test the function
+
+SELECT * FROM dbo.fn_Customer_FirstNameSearch('Br') ;
+
+
+
+
+
+
+
+
+
+
