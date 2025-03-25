@@ -15,3 +15,54 @@ BEGIN
     LEFT JOIN lkLanding.dbo.product AS p
     ON p.ProductKey = s.ProductKey;
 END;
+
+
+
+----------------------------------------
+
+CREATE PROCEDURE dbo.sp_Customer_GetByFirstName2
+@firstname VARCHAR(20)
+AS
+BEGIN
+    INSERT INTO DimCustomer_A
+    SELECT
+        *
+    FROM dbo.DimCustomer
+    WHERE FirstName LIKE @firstname + '%' 
+END
+;
+
+
+-------------------------------------------
+
+CREATE PROCEDURE dbo.sp_Customer_before_2022
+AS
+BEGIN
+    INSERT INTO DimCustomerBefore2022
+    SELECT
+        c.CustomerKey,
+        c.FirstName,
+        c.LastName,
+        c.City,
+        d.DateAltKey
+
+    FROM DimCustomer c
+
+    LEFT JOIN FactSalesOrder f 
+    ON c.CustomerKey = f.CustomerKey
+
+    LEFT JOIN DimDate d
+    ON d.DateKey =  f.SalesOrderDateKey
+
+    WHERE d.DateAltKey < '2022-01-01'
+END ;
+
+
+
+
+------------------------------------------------------
+
+DROP PROCEDURE if exists dbo.sp_Customer_GetByFirstName ;
+
+
+
