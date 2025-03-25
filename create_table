@@ -6,7 +6,7 @@ CREATE TABLE FinalTable (
 );
 
 
------------------------------- créer table avec CTAS ------------------------------------
+------------------------------ créer table avec CTAS ------------------------- (PRO TIPS!! : pour n'avoir que la sturcutre sans les lignes --> WHERE 1 = 0
 CREATE TABLE wh_product
 AS
 SELECT * FROM lkLanding.dbo.product ;
@@ -15,6 +15,28 @@ SELECT * FROM lkLanding.dbo.product ;
 CREATE TABLE wh_sales
 AS
 select * from lkLanding.dbo.sales2022 ;
+
+
+----------------------
+CREATE TABLE DimCustomerBefore2022
+AS
+    SELECT
+        c.CustomerKey,
+        c.FirstName,
+        c.LastName,
+        c.City,
+        d.DateAltKey
+
+    FROM DimCustomer c
+
+    LEFT JOIN FactSalesOrder f 
+    ON c.CustomerKey = f.CustomerKey
+
+    LEFT JOIN DimDate d
+    ON d.DateKey =  f.SalesOrderDateKey
+
+    WHERE 1 = 0  -- pour ne pas avoir de donner et avoir uniquement la table vide !!
+
 
 
 
