@@ -1,0 +1,125 @@
+df = spark.sql("SELECT * FROM MsLearn_Lakehouse.clients")
+display(df)
+
+-------------------------
+
+
+************** VOIR LES duplicates
+df \
+    .groupBy(['nom']) \
+    .count() \
+    .where('count > 1') \
+    .show()
+
+
+
+************** supprimer les doublons
+# df.dropDuplicates() --> supp les doublons mais faut que toutes les colonnes soient identiques
+# df.dropDuplicates(subset=['nom']) --> suup doublons par rapport à une colonne en particulier
+
+deduped_df = df.dropDuplicates(subset=['nom'])
+display(deduped_df.sort('client_id'))
+
+display(deduped_df.count())
+
+
+
+
+********************* valeurs manquantes et NULL
+
+# identifier les missing values in a column
+
+nulls = df.filter(df.email.isNull())
+display(nulls)
+
+# 2è méthode :
+from pyspark.sql.functions import col
+nulls2 = df.where(col("email").isNull())
+display(nulls2)
+
+
+--- vois les non nulls
+
+Not_nulls = df.filter(df.email.isNotNull())
+display(Not_nulls)
+
+# 2è méthode :
+from pyspark.sql.functions import col
+Not_nulls2 = df.where(col("email").isNotNull())
+display(Not_nulls2)
+
+
+
+
+********************* DROPPING NULLS VALUES
+
+# on peut utiliser : 
+#   how : avec 'any' pour supp une ligne si elle contient un null dans n'importe quelle colonne
+#         avec 'all' pour supp une ligne uniquement s'il y a null dans toutes les colonnes
+
+#   thresh : supp les lignes qui ont un nombre de non null inférieur au thresh définit.
+
+no_nulls = df.dropna(subset=['email'])
+display(no_nulls)
+
+
+
+********************* TYPE CONVERSION + ADDING NEW COLUMNS
+
+df.printSchema()
+
+type_conv = df.withColumn('date_inscription2', df.date_inscription.cast("date"))
+type_conv.printSchema()
+display(type_conv)
+
+
+
+
+********************* FILTER DATA
+
+from pyspark.sql.functions import col
+
+filtered_df = df.where(col("pays") == "France")
+
+display(filtered_df)
+
+
+
+
+********************* DATA ENRICHMENT
+
+# Adding new columns (withColumn or withColumns)
+
+from pyspark.sql.functions import concat_ws, col
+
+enriched_df = df.withColumn('ville-pays', concat_ws(' - ', df.ville, df.pays)) \
+                .where(col("pays") == "France")
+display(enriched_df)
+
+
+
+
+
+********************* JOINING AND MERGING
+
+joined_df = (
+    clients_df
+        .join(ventes_df, clients_df.client_id == ventes_df.client_id)
+        .select(clients_df.client_id, clients_df.nom, clients_df.pays, ventes_df.date_vente, ventes_df.prix_vente)
+)
+
+display(joined_df)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
