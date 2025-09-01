@@ -1,0 +1,21 @@
+%%sql
+SELECT
+    *
+FROM Bronze_TempReadings
+LIMIT 10
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
