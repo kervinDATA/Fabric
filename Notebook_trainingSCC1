@@ -1,0 +1,342 @@
+FABRIC TRAINING
+
+
+path de la table à transformer :
+espace de travail : DT_Silver(Dev)
+lakehouse : lh_slv_acd
+Table : ringcx_fr\agent_state_log
+abfss Path :
+abfss://8c7e6df2-9b99-4464-8001-d689aa479c12@onelake.dfs.fabric.microsoft.com/cd8ee13f-b386-4eb8-95cc-e5b812e2c12a/Tables/ringcx_fr/agent_state_log
+
+
+
+Table 'agent_state_log'
+infos
+noms colonnes : datatype : exemple
+
+agent_name : string : Romaric Bauduin
+agent_no : string : 1632
+agent_session_id : string : 11534423_2025-06-27_32410003_1632
+data_updated_on : timestamp : 7/10/2025 9:51:58 AM
+day_start_datetime : integer : 27
+duration : Long : 426
+end_date : Date : 6/27/2025 12:00:00 AM
+end_datetime : Timestamp : 6/27/2025 7:03:03 AM
+end_time : string : 07:03:03
+id : string : 4612c10226ac256178af88ddc2199211e174ee2aa4a66029335714bf57bb31
+month_start_datetime : integer : 6
+source : string : acd-ringcx_fr-shortcut-agent_state_log
+start_date : Date : 6/27/2025 12:00:00 AM
+start_datetime : timestamp : 6/27/2025 7:03:03 AM
+start_time : string : 07:03:03
+state : string : 'working' ou 'transition' ou 'on-break' ou 'monitoring' ou 'off-line' ou 'engaged' ou 'available' 
+team_name : string : SDM4 EBON HAWK
+year_start_datetime : integer : 2025
+
+
+
+
+Objectif de l'exercice : créer une table dans le gold avec en colonne Agent, Mois, Année, et le temps passé dans chaque statut.
+Dans : 
+espace de travail : DT_Gold(Dev)
+dossier 'KervinWorkshopAcd'
+
+
+
+
+
+********* Version avec Lakehouse et Notebook AVEC SHORTCUT
+
+
+1 - Dans DT_Gold(Dev)/KervinWorkshopAcd_Lakehouse : créations de dossiers
+	notebooks, pipelines, tables
+
+2 - Dans DT_Gold(Dev) : créations du lakehouse 'lh_gold_acd'
+
+3 - Dans le lakehouse : créer le shortcut dans Table (récup de la table qui est dans le silver)
+
+4 - Dans dossier notebooks : création du notebook 'nb-transform-agent_state_log-gold'
+
+5 - Dans pipeline : création du pipeline 'pl-slv_to_gold-ringcx_fr-shortcut-agent_state_log'
+
+
+
+
+
+---------------- NOTEBOOK -----------------------
+
+**
+# lecture de la table depuis le silver
+
+df_silver = spark.read.table("lh_gold_acd.agent_state_log")
+display(df_silver)
+
+ou
+
+
+df = spark.sql("SELECT * FROM lh_gold_acd.agent_state_log LIMIT 1000")
+#display(df)
+
+
+
+
+**
+#df_silver.select("month_start_datetime", "year_start_datetime", "day_start_datetime").distinct().orderBy("year_start_datetime", "month_start_datetime", "day_start_datetime").show()
+
+**
+# obtenier une agrégation : durée totale par agent, mois, année, statut
+from pyspark.sql.functions import col, sum as sum_, round
+
+df_agg = (
+    df_silver
+    .groupBy("agent_name", "month_start_datetime", "year_start_datetime", "state")
+    .agg(sum_("duration").alias("total_duration"))
+)
+
+display(df_agg.limit(30))
+
+
+
+
+**
+# créer une colonne par 'state'
+from pyspark.sql.functions import first
+
+df_states_in_col = (
+    df_agg
+    .groupBy("agent_name", "month_start_datetime", "year_start_datetime")
+    .pivot("state")
+    .agg(first("total_duration"))
+)
+
+display(df_states_in_col)
+
+
+
+
+**
+df_final = df_states_in_col
+
+
+
+
+**
+# Conversion en minutes et remplacement des null par 0
+from pyspark.sql.functions import col, round, coalesce, lit
+
+# identifier les colonnes à convertir
+cols_to_convert = [c for c in df_final.columns if c not in {"agent_name", "month_start_datetime", "year_start_datetime"}]
+
+# on applique la conversion sur les bonnes colonnes
+for c in cols_to_convert :
+    df_final = df_final.withColumn(c, coalesce(round(col(c) / 60), lit(0)))
+
+display(df_final)
+
+
+
+
+**
+df_final.write.mode("overwrite").saveAsTable("agent_state_log_gold")
+
+
+
+
+
+
+
+
+
+
+
+********* Version avec Lakehouse et Notebook SANS SHORTCUT
+
+
+1 - Dans Distribution_Analytics(Dev)/kervin-workshopACD-LH : créations de dossiers
+	notebooks, pipelines
+
+2 - Dans DT_Gold(Dev) : créations du lakehouse 'lh_gld_acd'
+
+3 - Dans le dossier Distribution_Analytics(Dev) / kervin-workshopACD-LH / notebooks : 
+créer le notebook 'nb-transform-slv_to_gold-agent_state_log' et le connecter au lh_gld_acd
+
+
+4 - Dans dossier notebooks : création du notebook 'nb-slv_agent_state_log_to_gold'
+
+5 - Dans pipeline : création du pipeline 'pl-slv_agent_state_log_to_gold'
+
+Entrée :
+{
+    "notebookId": "3ae0e7b7-b2f8-4588-8f0d-e2f5110c27a5",
+    "workspaceId": "369b1ce1-d881-41b2-80b4-5b7f94ac0d73"
+}
+
+
+
+---------------- NOTEBOOK -----------------------
+
+
+# lecture de la table depuis le silver
+table_path = "abfss://8c7e6df2-9b99-4464-8001-d689aa479c12@onelake.dfs.fabric.microsoft.com/cd8ee13f-b386-4eb8-95cc-e5b812e2c12a/Tables/ringcx_fr/agent_state_log"
+df_silver = spark.read.format("delta").load(table_path)
+display(df_silver.limit(30))
+
+
+
+
+#df_silver.select("month_start_datetime", "year_start_datetime", "day_start_datetime").distinct().orderBy("year_start_datetime", "month_start_datetime", "day_start_datetime").show()
+
+
+
+# obtenier une agrégation : durée totale par agent, mois, année, statut
+from pyspark.sql.functions import col, sum as sum_, round
+
+df_agg = (
+    df_silver
+    .groupBy("agent_name", "month_start_datetime", "year_start_datetime", "state")
+    .agg(sum_("duration").alias("total_duration"))
+)
+
+display(df_agg.limit(30))
+
+
+
+
+
+# créer une colonne par 'state'
+from pyspark.sql.functions import first
+
+df_states_in_col = (
+    df_agg
+    .groupBy("agent_name", "month_start_datetime", "year_start_datetime")
+    .pivot("state")
+    .agg(first("total_duration"))
+)
+
+display(df_states_in_col)
+
+
+
+
+
+
+df_final = df_states_in_col
+
+
+
+
+
+# Conversion en minutes et remplacement des null par 0
+from pyspark.sql.functions import col, round, coalesce, lit
+
+# identifier les colonnes à convertir
+cols_to_convert = [c for c in df_final.columns if c not in {"agent_name", "month_start_datetime", "year_start_datetime"}]
+
+# on applique la conversion sur les bonnes colonnes
+for c in cols_to_convert :
+    df_final = df_final.withColumn(c, coalesce(round(col(c) / 60), lit(0)))
+
+display(df_final)
+
+
+
+
+
+df_final.write.mode("overwrite").saveAsTable("agent_state_log_gold")
+#df.write.mode("overwrite").format("delta").partitionBy(partition_keys).save(table_path)
+
+
+
+
+
+
+
+
+
+
+---------------------------------------------------------
+
+
+
+********* Version avec Warehouse et T-SQL
+
+
+1 - Dans Distribution_Analytics(Dev)/kervin-workshopACD-DH : créations du dossier 'pipelines'
+
+
+2 - Dans DT_Gold(Dev) / KervinWorkshopAcd_Warehouse : créations du warehouse 'wh_gld_acd'
+
+3 - Dans DT_Gold(Dev) / KervinWorkshopAcd_Lakehouse : créations du lakehouse 'lh_sclv_acd' où faire le shortcut
+
+4 - Dans le warehouse : pour lire data : 
+select top 10 * from lh_scslv_acd.ringcx_fr.agent_state_log
+
+
+5 - Dans éditeur T-SQL : création de la procédure stockée 'sp_transform_agent_state_log_gold'
+
+6 - Dans Dans Distribution_Analytics(Dev)/kervin-workshopACD-DH / pipelines : 
+création du pipeline 'pl-sp-slv_to_gold-ringcx_fr-shortcut-agent_state_log'
+
+
+
+
+
+---------------- SQL -----------------------
+
+select top 10 * from lh_scslv_acd.ringcx_fr.agent_state_log
+
+
+
+
+
+CREATE OR ALTER PROCEDURE sp_transform_agent_state_log_gold
+AS
+BEGIN
+    -- Supprimer la table si elle existe
+    IF OBJECT_ID('agent_state_log_gold', 'U') IS NOT NULL
+        DROP TABLE agent_state_log_gold;
+
+    -- Étape 1 : Agrégation
+    WITH base_agg AS (
+        SELECT
+            agent_name,
+            month_start_datetime,
+            year_start_datetime,
+            state,
+            SUM(duration) AS total_duration
+        FROM lh_scslv_acd.ringcx_fr.agent_state_log
+        GROUP BY agent_name, month_start_datetime, year_start_datetime, state
+    )
+
+    -- Étape 2 : Pivot avec conversion en minutes
+    SELECT
+        agent_name,
+        month_start_datetime,
+        year_start_datetime,
+
+        ROUND(SUM(CASE WHEN state = 'working' THEN total_duration ELSE 0 END) / 60.0, 0) AS duration_working_minutes,
+        ROUND(SUM(CASE WHEN state = 'on-break' THEN total_duration ELSE 0 END) / 60.0, 0) AS duration_on_break_minutes,
+        ROUND(SUM(CASE WHEN state = 'engaged' THEN total_duration ELSE 0 END) / 60.0, 0) AS duration_engaged_minutes,
+        ROUND(SUM(CASE WHEN state = 'available' THEN total_duration ELSE 0 END) / 60.0, 0) AS duration_available_minutes,
+        ROUND(SUM(CASE WHEN state = 'monitoring' THEN total_duration ELSE 0 END) / 60.0, 0) AS duration_monitoring_minutes,
+        ROUND(SUM(CASE WHEN state = 'off-line' THEN total_duration ELSE 0 END) / 60.0, 0) AS duration_off_line_minutes,
+        ROUND(SUM(CASE WHEN state = 'transition' THEN total_duration ELSE 0 END) / 60.0, 0) AS duration_transition_minutes
+
+    INTO agent_state_log_gold
+    FROM base_agg
+    GROUP BY agent_name, month_start_datetime, year_start_datetime;
+END;
+
+
+
+
+----------------------------------------------------
+
+
+
+# Read the Delta table using format
+        df = spark.read.format("delta").load(table_path)
+ 
+
+
+df.write.mode("overwrite").format("delta").save(table_path)
