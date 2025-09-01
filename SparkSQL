@@ -7,11 +7,30 @@ LIMIT 10
 
 
 
+-- création vue temporaire : 
+CREATE OR REPLACE TEMP VIEW v_bronze AS
+SELECT * 
+FROM Bronze_TempReadings;
+
+
+-- Étape 2 : Créer une vue avec la colonne Temp_F (Temp_Celcius → Fahrenheit)
+CREATE OR REPLACE TEMP VIEW v_with_tempf AS
+SELECT
+    SourceFileName,
+    DeviceId,
+    Timestamp,
+    Temp_Celcius,
+    ROUND((Temp_Celcius * 9 / 5) + 32, 2) AS Temp_F
+FROM v_bronze
 
 
 
-
-
+-- sauvegarder en table qu'on va nommer 'silver_tempreadings_SparkSQL'
+CREATE OR REPLACE TABLE silver_tempreadings_SparkSQL
+AS 
+SELECT 
+    *
+FROM v_with_tempf;
 
 
 
