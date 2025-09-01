@@ -160,5 +160,10 @@ display(df_silver.limit(10))
 
 
 
+************** SAVE TABLE !!!!
+
+df_silver.write.mode("overwrite").saveAsTable("Silver_TempReadings")
+
+
 
 
