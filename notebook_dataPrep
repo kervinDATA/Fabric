@@ -3,6 +3,22 @@ display(df)
 
 -------------------------
 
+************ lecture table du même Lakehouse
+df_bronze = spark.read.table("Bronze_TempReadings")
+display(df_bronze.limit(10))
+
+
+********* afficher infos
+df_bronze.printSchema()
+
+exemple output :
+root
+ |-- DeviceId: string (nullable = true)
+ |-- Timestamp: timestamp (nullable = true)
+ |-- Temp_Celcius: double (nullable = true)
+ |-- SourceFileName: string (nullable = true)
+
+
 
 ************** VOIR LES duplicates
 df \
@@ -112,10 +128,33 @@ display(joined_df)
 
 
 
+------------------------------------------------------------------
 
 
 
+************ CREATION d'une colonne avec calcul + REORGANISER ordre des colonnes !!
 
+from pyspark.sql.functions import col, round
+
+# 1. Ajouter la colonne Temp_F
+df_with_fahrenheit = df_bronze.withColumn(
+    "Temp_F", 
+    round((col("Temp_Celcius") * 9 / 5) + 32, 2)
+)
+
+# 2. Réorganiser les colonnes dans l’ordre souhaité
+columns_order = [
+    "SourceFileName", 
+    "DeviceId", 
+    "Timestamp", 
+    "Temp_Celcius", 
+    "Temp_F"
+]
+
+df_silver = df_with_fahrenheit.select(columns_order)
+
+# Affichage du résultat
+display(df_silver.limit(10))
 
 
 
