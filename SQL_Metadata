@@ -1,0 +1,39 @@
+***
+CREATE TABLE Configuration
+(
+    SourceFileDirectory VARCHAR(50) NOT NULL,
+    SourceFileName VARCHAR(50) NOT NULL,
+    DestinationTableName VARCHAR(50) NOT NULL,
+    ExpectedColNames VARCHAR(999) NOT NULL
+);
+
+
+
+***
+SELECT TOP (100) [SourceFileDirectory],
+			[SourceFileName],
+			[DestinationTableName],
+			[ExpectedColNames]
+FROM [DP009_Metadata].[dbo].[Configuration]
+
+
+
+
+***
+INSERT INTO dbo.Configuration
+VALUES
+	('addresses', 'addresses.csv', 'addresses', 'id,location_id,address_1,address_2,city,state_province,postal_code,country'),
+	('phones', 'phones.csv', 'phones', 'id,contact_id,location_id,organization_id,service_id,country_prefix,department,extension,number,number_type,vanity_number'),
+	('contacts','contacts.csv','contacts','id,location_id,organization_id,service_id,name,title,email,department');
+
+
+***
+SELECT TOP (100) [SourceFileDirectory],
+			[SourceFileName],
+			[DestinationTableName],
+			[ExpectedColNames]
+FROM [DP009_Metadata].[dbo].[Configuration]
+
+
+
+
