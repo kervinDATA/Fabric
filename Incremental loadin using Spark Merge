@@ -1,0 +1,47 @@
+*** Création de la table dans le lakehouse
+df = (
+    spark.read.format("csv")
+    .option("header","true")
+    .option("inferSchema","true")
+    .load("Files/0_starter/data.csv")
+)
+df.write.mode("overwrite").format("delta").saveAsTable('sales_figures')
+
+
+************ using PySpark to load the CSV, then Spark SQL for the MERGE **************
+
+*** nouvelles données à charger : ici on crée une vue spark
+# load the spark upserts
+spark_upserts_csv = (
+    spark.read.format("csv") 
+    .option("header", True) 
+    .option("inferSchema", True) 
+    .load("Files/1_upserts/spark_upserts.csv")
+)
+
+# write to a view, so that we can use Spark SQL
+spark_upserts_csv.createOrReplaceTempView("spark_upserts")
+display(spark_upserts_csv)
+
+
+*** use Spark SQL to MERGE the sales_figures table with the spark_upserts view, on the row_id
+%%sql
+MERGE INTO `sales_figures` AS tgt
+USING `spark_upserts` AS src
+ON tgt.row_id = src.row_id
+WHEN MATCHED THEN UPDATE SET *
+WHEN NOT MATCHED THEN INSERT *
+
+
+display(spark.table('sales_figures'))
+
+
+
+
+
+
+
+
+
+
+
