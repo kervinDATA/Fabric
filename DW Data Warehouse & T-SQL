@@ -27,15 +27,60 @@ CREATE TABLE raw.hubspot_locations_lookup (
 
 
 
-
-
-
-
-
-
-
-
-
 ************** DW002 *************************
+ADDING NEW DATA TO TABLES
+
+*** manually : 
+INSERT INTO raw.hubspot_locations_lookup  
+VALUES 
+      (40001, 1001, 'France', 'Bordeaux')
+    , (40001, 1001, 'France', 'Paris')
+    , (40002, 1001, 'Germany', 'Munich')
+    , (40002, 1001, 'Germany', 'Berlin')
+    ; 
+
+
+SELECT TOP (100) [customer_country_id],
+			[customer_city_id],
+			[customer_country_name],
+			[customer_city_name]
+FROM [DW001_DWH].[raw].[hubspot_locations_lookup]
+
+
+-------------
+-- Copier fichiers Parquet et csv : COPY INTO
+-- To load data from a CSV file skipping a header row
+
+COPY INTO raw.hubspot_contacts
+FROM 'https://dojostorage.blob.core.windows.net/dojostorage/hubspot_contacts_test.csv'
+WITH (
+      FILE_TYPE = 'CSV'
+    , FIRSTROW = 2
+);
+
+
+
+
+************** DW003 *************************
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
