@@ -61,9 +61,18 @@ WITH (
 
 
 
-************** DW003 *************************
+************** DW011 *************************
 
 
+Difference Between DROP, DELETE and TRUNCATE
+DROP and TRUNCATE are DDL command while DELETE is a DML command. 
+
+*
+DELETE remove the specific row based on the given condition, 
+*
+TRUNCATE removes all the record from the table at once,
+*
+DROP command removes the table or databases and as well as the structure.
 
 
 
