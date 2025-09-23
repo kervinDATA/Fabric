@@ -9,7 +9,20 @@ CREATE SCHEMA analytics;
 GO
 
 
+***** Création tables
+CREATE TABLE raw.hubspot_contacts (
+      customer_id INT
+    , customer_name VARCHAR(100)
+    , customer_city_id INT
+    , customer_email VARCHAR(100)
+);
 
+CREATE TABLE raw.hubspot_locations_lookup (
+      customer_country_id INT
+    , customer_city_id INT
+    , customer_country_name VARCHAR(100)
+    , customer_city_name VARCHAR(100)
+);
 
 
 
