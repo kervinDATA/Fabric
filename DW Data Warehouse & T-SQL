@@ -1,0 +1,28 @@
+************** DW001 *************************
+
+
+***** Création de schema
+CREATE SCHEMA raw;
+CREATE SCHEMA transformed;
+CREATE SCHEMA analytics;
+
+GO
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+************** DW002 *************************
+
+
