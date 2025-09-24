@@ -166,12 +166,56 @@ SELECT * FROM raw.hubspot_locations_lookup;
 
 
 
- **********************************************************
+ ************** DW014  IF/ ELSE logic ********************************************
+
+-- DW014  IF/ ELSE logic
+
+CREATE PROCEDURE raw.p_merge_customer_locations
+  @customer_country_id  INT
+, @customer_city_id  INT
+, @customer_country_name VARCHAR(100)
+, @customer_city_name VARCHAR(100)
+AS
+IF EXISTS (SELECT 1 FROM raw.hubspot_locations_lookup WHERE customer_city_id = @customer_city_id)
+BEGIN
+UPDATE raw.hubspot_locations_lookup
+SET   customer_country_id = @customer_country_id
+    , customer_country_name = @customer_country_name
+    , customer_city_name = @customer_city_name
+WHERE customer_city_id = @customer_city_id;
+END
+
+ELSE
+
+BEGIN
+INSERT INTO raw.hubspot_locations_lookup (customer_country_id, customer_city_id, customer_country_name, customer_city_name)
+VALUES (@customer_country_id, @customer_city_id, @customer_country_name, @customer_city_name);
+END
 
 
 
 
+EXEC raw.p_merge_customer_locations
+@customer_country_id = 4005 , 
+@customer_city_id = 1010 , 
+@customer_country_name = 'United Kingdom', 
+@customer_city_name = 'Bristol' 
 
+
+
+SELECT * FROM raw.hubspot_locations_lookup;
+
+
+
+
+EXEC raw.p_merge_customer_locations
+@customer_country_id = 4006, 
+@customer_city_id = 1011 , 
+@customer_country_name = 'Netherlands', 
+@customer_city_name = 'Amsterdam'
+
+
+*****************************************************
 
 
 
