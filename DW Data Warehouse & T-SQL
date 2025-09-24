@@ -76,12 +76,97 @@ DROP command removes the table or databases and as well as the structure.
 
 
 
+*************** DW013  STORED PROCEDURE ***************************
+
+-- DW013_01
+CREATE PROCEDURE raw.p_get_all_contacts
+AS
+BEGIN
+SELECT 
+      [customer_id]
+    , [customer_name]
+    , [customer_city_id]
+    , [customer_email]
+FROM raw.hubspot_contacts
+END
+
+
+EXEC raw.p_get_all_contacts
 
 
 
 
+-- DW013_02
+CREATE PROCEDURE raw.p_get_filtered_contacts
+@customer_city_id  int
+AS
+BEGIN
+SELECT 
+      [customer_id]
+    , [customer_name]
+    , [customer_city_id]
+    , [customer_email]
+FROM raw.hubspot_contacts
+WHERE customer_city_id = @customer_city_id
+END
 
 
+EXEC raw.p_get_filtered_contacts @customer_city_id = 1004
+
+
+
+
+-- DW013_03 INSERT
+CREATE PROCEDURE raw.p_insert_new_location
+  @customer_country_id INT
+, @customer_city_id INT
+, @customer_country_name VARCHAR(100)
+, @customer_city_name VARCHAR(100)
+AS
+BEGIN
+INSERT INTO raw.hubspot_locations_lookup
+VALUES (@customer_country_id, @customer_city_id, @customer_country_name, @customer_city_name)
+END
+
+
+
+EXEC raw.p_insert_new_location
+@customer_country_id = 4005
+, @customer_city_id = 1010
+, @customer_country_name = 'United Kingdom'
+, @customer_city_name = 'Birmingham'
+
+
+
+
+SELECT * FROM raw.hubspot_locations_lookup;
+
+
+
+
+-- DW013_04 UPDATE
+CREATE PROCEDURE raw.p_update_location_name
+  @CityID INT
+, @NewCityName VARCHAR(100)
+AS
+BEGIN
+UPDATE raw.hubspot_locations_lookup
+SET customer_city_name = @NewCityName
+WHERE customer_city_id = @CityID
+END
+
+
+
+EXEC raw.p_update_location_name
+@CityID = 1010,
+@NewCityName = 'Leeds'
+
+
+SELECT * FROM raw.hubspot_locations_lookup;
+
+
+
+ **********************************************************
 
 
 
