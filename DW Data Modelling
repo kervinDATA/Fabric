@@ -1,6 +1,54 @@
 -- DW018 CONFX: Introduction & Setup
 
+-- DW019
+-- get our bronze tables that we need,one source system at a time
+-- transform as per the target requirements
 
+
+WITH lv_sessions AS (
+SELECT 
+	CONCAT('1', '_', [session_id]) AS master_session_id,
+	1 as conference_id,
+	session_name,
+	CONCAT('1', '_', sch.[speaker_id]) AS master_speaker_id,
+	speak.speaker_name,
+	room.room_name AS stage_name,
+	DATEDIFF(MINUTE, start_time, end_time) AS session_length,
+	sch.[start_time] AS session_start_time,
+	[session_date],
+	sch.[last_modified_date]
+FROM DW018_BronzeLH.dbo.lv_schedule sch 
+JOIN DW018_BronzeLH.dbo.lv_rooms room
+	ON sch.room_id = room.room_id
+JOIN DW018_BronzeLH.dbo.lv_speakers speak
+	ON sch.speaker_id = speak.speaker_id
+),
+
+stock_sess AS (
+SELECT
+	CONCAT('2', '_', [session_id]) AS master_session_id,
+	2 as conference_id,
+	session_name,
+	CONCAT('2', '_', [speaker_id]) AS master_speaker_id,
+	NULL AS speaker_name,
+	stage_name,
+	session_length,
+	session_start_time,
+	session_date,
+	updated_timestamp AS last_modified_date
+FROM DW018_BronzeLH.dbo.stock_sessions
+),
+
+union_two AS (
+SELECT * FROM lv_sessions
+UNION ALL
+SELECT * FROM stock_sess
+)
+
+-- Save en table dans le schema dbo sous le nom sessions_conformed
+SELECT * INTO dbo.sessions_conformed FROM union_two
+
+select * from dbo.sessions_conformed
 
 
 
