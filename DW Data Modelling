@@ -55,7 +55,25 @@ select * from dbo.sessions_conformed
 
 ***********************************************************************
 
+-- DW020
 
+SELECT  
+    ts.CRM_Customer_ID AS em_customer_id,
+    o.conference_id,
+    ts.offer_id,
+    ts.tickets_purchased,
+    total_transaction_cost = ts.tickets_purchased * o.office_price_per_ticket,
+    o.office_price_per_ticket,
+    ts.OrderDate AS order_date
+
+INTO DW019_GreenWH.dbo.ticket_sales
+FROM DW018_BronzeLH.dbo.em_ticket_sales ts 
+JOIN DW018_BronzeLH.dbo.em_offers o
+    ON ts.offer_id = o.offer_id
+;
+
+
+*************************************************************************************
 
 
 
