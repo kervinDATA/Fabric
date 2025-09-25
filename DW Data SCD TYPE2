@@ -3,7 +3,208 @@
 -- DW028 CONFX: SCD Type 2
 
 
+-- DW028 CONFX: SCD Type 2
 
+-- Create a new table in your [incremental] schema
+CREATE TABLE [DW019_GreenWH].[incremental].[customers_scdtype2]
+(
+    [customer_surrogate_key] [bigint] NOT NULL, 
+    [customer_id] [int] NOT NULL,
+    [customer_name] [varchar](200) NULL,
+    [customer_email] [varchar](200) NULL,
+    [valid_from] [datetime2](6), 
+    [valid_to] [datetime2](6),
+    [is_current] [bit], 
+    [is_deleted] [bit]
+)
+
+
+
+
+-- STORED PROCEDURE that UPDATE records
+
+CREATE   PROCEDURE [incremental].[p_scd2_bulk_update_modified_customer_records]
+AS 
+
+DROP TABLE IF EXISTS [temp].[updated_scd2_customers];
+
+-- CREATE a 'Temporary' Table for the Updated Records
+CREATE TABLE [temp].[updated_scd2_customers] AS 
+SELECT [src].[customer_id]
+	, [src].[customer_name]
+	, [src].[customer_email]
+	, [src].[modified]
+FROM [DW018_BronzeLH].[dbo].[em_customers] [src]
+INNER JOIN [incremental].[customers_scdtype2] AS [target]
+    ON [target].[customer_id] = [src].[customer_id]
+WHERE [target].[is_current] = 1 
+AND ([target].[customer_name] <> [src].[customer_name] 
+    OR [target].[customer_email] <> [src].[customer_email]
+);
+
+-- If there are any records in the temporary table, continue... 
+IF EXISTS(SELECT 1 FROM [temp].[updated_scd2_customers])
+    
+    -- UPDATE the old row (ValidTo and is_current column) 
+    UPDATE [target]
+    SET [target].[valid_to] = [stg].[modified], 
+        [target].[is_current] = 0
+    FROM [incremental].[customers_scdtype2] AS [target]
+    INNER JOIN [temp].[updated_scd2_customers] AS [stg]
+        ON [target].[customer_id] = [stg].[customer_id]
+    WHERE [target].[is_current] = 1;
+
+
+    -- calculate the Max customer_surrogate_key from the table, before inserting
+    DECLARE @MaxCustomerID AS INT;
+
+    IF EXISTS(SELECT * FROM [incremental].[customers_scdtype2])
+        SET @MaxCustomerID = (SELECT MAX([customer_surrogate_key]) FROM [incremental].[customers_scdtype2]);
+    ELSE
+        SET @MaxCustomerID = 0;
+
+    -- INSERT the new updated rows  
+    INSERT INTO [incremental].[customers_scdtype2]
+    SELECT
+        @MaxCustomerID + ROW_NUMBER() OVER(ORDER BY (SELECT NULL)) AS [customer_surrogate_key],
+        [stg].[customer_id],
+        [stg].[customer_name],
+        [stg].[customer_email],
+        [valid_from] = [stg].[modified], 
+        [valid_to] = '9999-12-31 23:59:59' ,
+        [is_current] = 1 , 
+        [is_deleted] = 0
+    FROM [temp].[updated_scd2_customers] [stg];
+
+DROP TABLE [temp].[updated_scd2_customers];
+
+
+
+
+
+
+
+-- STORED PROCEDURE that INSERT records
+
+CREATE   PROCEDURE [incremental].[p_scd2_bulk_insert_new_customer_records]
+AS 
+
+DROP TABLE IF EXISTS [temp].[inserted_scd2_customers];
+
+-- CREATE a 'Temporary' Table for the INSERTED Records
+CREATE TABLE [temp].[inserted_scd2_customers] AS 
+SELECT [src].[customer_id]
+	, [src].[customer_name]
+	, [src].[customer_email]
+	, [src].[modified]
+FROM [DW018_BronzeLH].[dbo].[em_customers] AS [src]
+LEFT JOIN [incremental].[customers_scdtype2] [target]
+    ON [src].[customer_id] = [target].[customer_id]
+WHERE [target].[customer_id] IS NULL;
+
+-- If there are any records in the temporary table, continue... 
+IF EXISTS(SELECT 1 FROM [temp].[inserted_scd2_customers])
+    
+    -- generate new surrogate keys
+	DECLARE @MaxCustomerID AS INT;
+
+	IF EXISTS(SELECT * FROM [incremental].[customers_scdtype2])
+		SET @MaxCustomerID = (SELECT MAX([customer_surrogate_key]) FROM [incremental].[customers_scdtype2]);
+	ELSE
+		SET @MaxCustomerID = 0;
+
+	-- insert the Inserted records, in SCD Type 2 format
+	INSERT INTO [incremental].[customers_scdtype2]
+	SELECT
+		@MaxCustomerID + ROW_NUMBER() OVER(ORDER BY (SELECT NULL)) AS [customer_surrogate_key],
+		[src].[customer_id],
+		[src].[customer_name],
+		[src].[customer_email],
+		[valid_from] = [src].[modified], 
+		[valid_to] = '9999-12-31 23:59:59' ,
+		[is_current] = 1 , 
+		[is_deleted] = 0
+	FROM [temp].[inserted_scd2_customers] AS [src]
+
+-- Drop the temporary table at the end
+DROP TABLE [temp].[inserted_scd2_customers];
+
+
+
+
+
+
+-- STORED PROCEDURE that DELETE records
+
+CREATE PROCEDURE [incremental].[p_scd2_bulk_delete_customer_records]
+AS 
+
+DROP TABLE IF EXISTS [temp].[deleted_scd2_customers];
+
+-- CREATE a 'Temporary' Table for the DELETED Records
+CREATE TABLE [temp].[deleted_scd2_customers] AS 
+SELECT [target].[customer_id]
+FROM [incremental].[customers_scdtype2] AS [target] 
+LEFT JOIN [DW018_BronzeLH].[dbo].[em_customers] [src]
+    ON [target].[customer_id] = [src].[customer_id]
+WHERE [src].[customer_id] IS NULL
+AND [target].[is_current]= 1;
+
+-- If there are any records in the temporary table, continue... 
+IF EXISTS(SELECT 1 FROM [temp].[deleted_scd2_customers])
+    
+	UPDATE [DW019_GreenWH].[incremental].[customers_scdtype2]
+	SET [valid_to] = GETDATE(),
+		[is_current] = 0, 
+		[is_deleted] = 1
+	FROM [incremental].[customers_scdtype2]  [target]
+	INNER JOIN [temp].[deleted_scd2_customers] [src]
+		ON [src].[customer_id] = [target].[customer_id]
+	WHERE [target].[is_current] = 1 
+
+DROP TABLE [temp].[deleted_scd2_customers];
+
+
+
+
+
+
+
+CREATE   PROCEDURE  [incremental].[p_perform_scd2_customer_merge]
+AS 
+EXEC [DW019_GreenWH].[incremental].[p_scd2_bulk_update_modified_customer_records];
+EXEC [DW019_GreenWH].[incremental].[p_scd2_bulk_insert_new_customer_records];
+EXEC [DW019_GreenWH].[incremental].[p_scd2_bulk_delete_customer_records];
+
+
+
+EXEC incremental.p_perform_scd2_customer_merge
+
+
+
+-- on fait les modifications dans la source qui est une table du lakehouse
+/*
+%%sql
+UPDATE em_customers
+SET customer_name = 'Wayne Johnson', modified=current_timestamp()
+WHERE customer_id = 16;
+
+INSERT INTO em_customers (customer_id, customer_name, customer_email, modified)
+VALUES
+  (5002, 'Henry McAll', 'henrymac@example.com', current_timestamp()),
+  (5003, 'Bob Teler', 'bobteler@example.com', current_timestamp());
+
+DELETE FROM em_customers
+WHERE customer_id IN (8,9)
+*/
+
+
+EXEC incremental.p_perform_scd2_customer_merge
+
+
+SELECT * FROM [incremental].[customers_scdtype2] WHERE [customer_id] = 16
+SELECT * FROM [incremental].[customers_scdtype2] WHERE [customer_id] in (5002,5003) 
+SELECT * FROM [incremental].[customers_scdtype2] WHERE [customer_id] in (8,9) 
 
 
 
