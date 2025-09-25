@@ -1,0 +1,267 @@
+************** SCD TYPE 1 *****************
+
+-- DW026 SCD TYPE 1
+
+CREATE SCHEMA incremental ;
+
+
+CREATE TABLE [DW019_GreenWH].[incremental].[customers_scdtype1]
+(
+    [customer_surrogate_key] [int] NOT NULL, 
+    [customer_id] [int]  NOT NULL,
+    [customer_name] [varchar](200)  NULL,
+    [customer_email] [varchar](200)  NULL,
+    [modified] [datetime2](6)  NULL
+)
+
+
+INSERT INTO [DW019_GreenWH].[incremental].[customers_scdtype1]
+SELECT
+    ROW_NUMBER() OVER(ORDER BY (SELECT NULL)) AS [customer_surrogate_key],
+    [src].[customer_id],
+    [src].[customer_name],
+    [src].[customer_email],
+    [src].[modified]
+FROM [DW018_BronzeLH].[dbo].[em_customers] AS [src]
+
+
+
+-----------------------------------------------------------------------------
+
+
+-- table dans le bronze où il y a eu des modifs
+SELECT * FROM DW018_BronzeLH.dbo.em_customers
+
+-- table dans le green qui est la table du bronze avant les modifs
+SELECT * FROM DW019_GreenWH.incremental.customers_scdtype1
+
+
+---------------------------------------------
+-- solutions kervin
+
+SELECT 
+    * 
+FROM DW019_GreenWH.incremental.customers_scdtype1 scd 
+FULL OUTER JOIN DW018_BronzeLH.dbo.em_customers em 
+    ON scd.customer_id = em.customer_id 
+WHERE scd.customer_id is NULL
+
+
+
+SELECT 
+    * 
+FROM DW019_GreenWH.incremental.customers_scdtype1 scd 
+FULL OUTER JOIN DW018_BronzeLH.dbo.em_customers em 
+    ON scd.customer_id = em.customer_id 
+WHERE scd.modified <> em.modified
+
+
+
+SELECT 
+    * 
+FROM DW019_GreenWH.incremental.customers_scdtype1 scd 
+FULL OUTER JOIN DW018_BronzeLH.dbo.em_customers em 
+    ON scd.customer_id = em.customer_id 
+WHERE em.customer_id is NULL
+
+
+
+-- solutions 2
+
+--T1: NEW RECORDS
+SELECT [src].[customer_id]
+	, [src].[customer_name]
+	, [src].[customer_email]
+	, [src].[modified]
+FROM [DW018_BronzeLH].[dbo].[em_customers] AS [src]
+LEFT JOIN [incremental].[customers_scdtype1] [target]
+    ON [src].[customer_id] = [target].[customer_id]
+WHERE [target].[customer_id] IS NULL;
+
+--T2: UPDATED RECORDS
+SELECT [src].[customer_id]
+	, [src].[customer_name]
+	, [src].[customer_email]
+	, [src].[modified]
+FROM [DW018_BronzeLH].[dbo].[em_customers] [src]
+INNER JOIN [incremental].[customers_scdtype1] AS [target]
+    ON [target].[customer_id] = [src].[customer_id]
+WHERE ([target].[customer_name] <> [src].[customer_name] 
+    OR [target].[customer_email] <> [src].[customer_email]
+);
+
+--T3: DELETED RECORDS
+SELECT [target].[customer_id]
+FROM [incremental].[customers_scdtype1] [target]
+LEFT JOIN [DW018_BronzeLH].[dbo].[em_customers] [src]
+	ON [target].[customer_id] = [src].[customer_id]
+WHERE [src].[customer_id] IS NULL;
+
+----------------------------------------------------------------------------
+
+-- DW027  CONFX: SCD Type 1, Part 2
+
+SELECT * FROM DW019_GreenWH.incremental.customers_scdtype1
+SELECT * FROM temp.inserted_scd1_customers
+
+
+CREATE SCHEMA temp ;
+
+
+-- STORED PROCEDURE that INSERTS records
+
+CREATE PROCEDURE incremental.p_scd1_bulk_insert_new_customer_records
+AS
+
+-- Write inserts into temp table
+DROP TABLE IF EXISTS temp.inserted_scd1_customers;
+
+CREATE TABLE temp.inserted_scd1_customers AS
+SELECT 
+      [src].[customer_id]
+	, [src].[customer_name]
+	, [src].[customer_email]
+	, [src].[modified]
+FROM [DW018_BronzeLH].[dbo].[em_customers] AS [src]
+LEFT JOIN [incremental].[customers_scdtype1] [target]
+    ON [src].[customer_id] = [target].[customer_id]
+WHERE [target].[customer_id] IS NULL;
+
+
+
+-- if there are any records in the temporary table, continue...
+IF EXISTS(SELECT 1 FROM temp.inserted_scd1_customers)
+
+    DECLARE @MaxID AS BIGINT;
+
+    IF EXISTS(SELECT * FROM DW019_GreenWH.incremental.customers_scdtype1)
+        SET @MaxID = (SELECT MAX(customer_surrogate_key) FROM DW019_GreenWH.incremental.customers_scdtype1) ;
+    ELSE
+        SET @MaxID = 0 ;
+
+    INSERT INTO DW019_GreenWH.incremental.customers_scdtype1
+    SELECT
+        @MaxID + ROW_NUMBER() OVER(ORDER BY (SELECT NULL)) AS customer_surrogate_key
+        , src.customer_id
+        , [src].[customer_name]
+        , [src].[customer_email]
+        , [src].[modified]
+    FROM temp.inserted_scd1_customers src
+
+
+-- drop the temporary table at the end
+DROP TABLE temp.inserted_scd1_customers ;
+
+
+
+
+EXEC incremental.p_scd1_bulk_insert_new_customer_records
+
+
+
+
+SELECT * FROM [incremental].[customers_scdtype1] WHERE [customer_id] in (5000,5001) 
+
+
+
+
+-- STORED PROCEDURE that UPDATES records
+
+CREATE PROCEDURE incremental.p_scd1_bulk_update_modified_customer_records
+AS
+
+
+DROP TABLE IF EXISTS temp.updated_scd1_customers;
+
+-- create a 'temporary' table for the updated records
+CREATE TABLE temp.updated_scd1_customers AS
+SELECT 
+      [src].[customer_id]
+	, [src].[customer_name]
+	, [src].[customer_email]
+	, [src].[modified]
+FROM [DW018_BronzeLH].[dbo].[em_customers] [src]
+INNER JOIN [incremental].[customers_scdtype1] AS [target]
+    ON [target].[customer_id] = [src].[customer_id]
+WHERE ([target].[customer_name] <> [src].[customer_name] 
+    OR [target].[customer_email] <> [src].[customer_email]
+);
+
+IF EXISTS(SELECT 1 FROM temp.updated_scd1_customers)
+    UPDATE incremental.customers_scdtype1
+    set customer_name = src.customer_name,
+        customer_email = src.customer_email,
+        modified = src.modified
+    FROM incremental.customers_scdtype1  target
+    INNER JOIN temp.updated_scd1_customers src 
+        on src.customer_id = target.customer_id
+
+
+-- drop the temporary table at the end
+DROP TABLE temp.updated_scd1_customers ;
+
+
+
+EXEC incremental.p_scd1_bulk_update_modified_customer_records
+
+
+SELECT * FROM [incremental].[customers_scdtype1] WHERE [customer_id] = 15
+
+
+
+
+-- STORED PROCEDURE that DELETES records
+
+CREATE PROCEDURE incremental.p_scd1_bulk_delete_customer_records
+AS
+
+
+DROP TABLE IF EXISTS temp.deleted_scd1_customers;
+
+-- create a 'temporary' table for the deleted records
+CREATE TABLE temp.deleted_scd1_customers AS
+SELECT 
+[target].[customer_id]
+FROM [incremental].[customers_scdtype1] [target]
+LEFT JOIN [DW018_BronzeLH].[dbo].[em_customers] [src]
+	ON [target].[customer_id] = [src].[customer_id]
+WHERE [src].[customer_id] IS NULL;
+
+IF EXISTS(SELECT 1 FROM temp.deleted_scd1_customers)
+    DELETE FROM DW019_GreenWH.incremental.customers_scdtype1
+    WHERE customer_id IN (SELECT customer_id FROM temp.deleted_scd1_customers)
+
+
+-- drop the temporary table at the end
+DROP TABLE temp.deleted_scd1_customers ;
+
+
+
+
+EXEC incremental.p_scd1_bulk_delete_customer_records
+
+
+SELECT * FROM [incremental].[customers_scdtype1] WHERE [customer_id] in (3,4) 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
