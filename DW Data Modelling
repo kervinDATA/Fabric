@@ -127,7 +127,50 @@ SELECT * FROM dbo.date_dimension;
 
 *************************************************************************************
 
+-- DW022  CONFX: Attendance Table
 
+SELECT * FROM DW018_BronzeLH.dbo.lv_attendance_records ;
+SELECT * FROM DW018_BronzeLH.dbo.lv_attendees_mapping ;
+SELECT * FROM DW018_BronzeLH.dbo.stock_check_ins ;
+
+----------------------------------------------------
+
+WITH lv_attendance AS (
+SELECT
+      CONCAT('1', '_', value) AS master_session_id
+    , amap.CRM_Customer_ID AS attendee_customer_id
+    , NULL AS scan_timestamp
+FROM DW018_BronzeLH.dbo.lv_attendance_records arec
+JOIN DW018_BronzeLH.dbo.lv_attendees_mapping amap
+    ON arec.attendee_id = amap.attendee_id
+CROSS APPLY STRING_SPLIT(sessions_attended, ',')
+),
+
+stock_attendees AS (
+SELECT
+      master_session_id = CONCAT('2', '_', session_id)
+    , attendee_customer_id = crm_user_id
+    , scan_timestamp = tap_timestamp
+FROM DW018_BronzeLH.dbo.stock_check_ins
+),
+
+att_together AS (
+SELECT * FROM lv_attendance
+UNION ALL
+SELECT * FROM stock_attendees
+)
+
+SELECT 
+    unique_attendance_log_id = ROW_NUMBER() OVER(ORDER BY ( select NULL)),
+    master_session_id,
+    attendee_customer_id,
+    scan_timestamp
+INTO dbo.attendance_logs_conformed 
+FROM att_together
+
+
+
+SELECT * FROM attendance_logs_conformed ORDER BY unique_attendance_log_id
 
 
 
