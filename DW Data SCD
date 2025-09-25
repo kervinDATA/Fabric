@@ -1,0 +1,127 @@
+************** SCD TYPE 1 *****************
+
+-- DW026 SCD TYPE 1
+
+CREATE SCHEMA incremental ;
+
+
+CREATE TABLE [DW019_GreenWH].[incremental].[customers_scdtype1]
+(
+    [customer_surrogate_key] [int] NOT NULL, 
+    [customer_id] [int]  NOT NULL,
+    [customer_name] [varchar](200)  NULL,
+    [customer_email] [varchar](200)  NULL,
+    [modified] [datetime2](6)  NULL
+)
+
+
+INSERT INTO [DW019_GreenWH].[incremental].[customers_scdtype1]
+SELECT
+    ROW_NUMBER() OVER(ORDER BY (SELECT NULL)) AS [customer_surrogate_key],
+    [src].[customer_id],
+    [src].[customer_name],
+    [src].[customer_email],
+    [src].[modified]
+FROM [DW018_BronzeLH].[dbo].[em_customers] AS [src]
+
+
+
+-----------------------------------------------------------------------------
+
+
+-- table dans le bronze où il y a eu des modifs
+SELECT * FROM DW018_BronzeLH.dbo.em_customers
+
+-- table dans le green qui est la table du bronze avant les modifs
+SELECT * FROM DW019_GreenWH.incremental.customers_scdtype1
+
+
+---------------------------------------------
+-- solutions kervin
+
+SELECT 
+    * 
+FROM DW019_GreenWH.incremental.customers_scdtype1 scd 
+FULL OUTER JOIN DW018_BronzeLH.dbo.em_customers em 
+    ON scd.customer_id = em.customer_id 
+WHERE scd.customer_id is NULL
+
+
+
+SELECT 
+    * 
+FROM DW019_GreenWH.incremental.customers_scdtype1 scd 
+FULL OUTER JOIN DW018_BronzeLH.dbo.em_customers em 
+    ON scd.customer_id = em.customer_id 
+WHERE scd.modified <> em.modified
+
+
+
+SELECT 
+    * 
+FROM DW019_GreenWH.incremental.customers_scdtype1 scd 
+FULL OUTER JOIN DW018_BronzeLH.dbo.em_customers em 
+    ON scd.customer_id = em.customer_id 
+WHERE em.customer_id is NULL
+
+
+
+-- solutions 2
+
+--T1: NEW RECORDS
+SELECT [src].[customer_id]
+	, [src].[customer_name]
+	, [src].[customer_email]
+	, [src].[modified]
+FROM [DW018_BronzeLH].[dbo].[em_customers] AS [src]
+LEFT JOIN [incremental].[customers_scdtype1] [target]
+    ON [src].[customer_id] = [target].[customer_id]
+WHERE [target].[customer_id] IS NULL;
+
+--T2: UPDATED RECORDS
+SELECT [src].[customer_id]
+	, [src].[customer_name]
+	, [src].[customer_email]
+	, [src].[modified]
+FROM [DW018_BronzeLH].[dbo].[em_customers] [src]
+INNER JOIN [incremental].[customers_scdtype1] AS [target]
+    ON [target].[customer_id] = [src].[customer_id]
+WHERE ([target].[customer_name] <> [src].[customer_name] 
+    OR [target].[customer_email] <> [src].[customer_email]
+);
+
+--T3: DELETED RECORDS
+SELECT [target].[customer_id]
+FROM [incremental].[customers_scdtype1] [target]
+LEFT JOIN [DW018_BronzeLH].[dbo].[em_customers] [src]
+	ON [target].[customer_id] = [src].[customer_id]
+WHERE [src].[customer_id] IS NULL;
+
+----------------------------------------------------------------------------
+
+DW027  CONFX: SCD Type 1, Part 2
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
