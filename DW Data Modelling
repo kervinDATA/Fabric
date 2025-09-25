@@ -75,6 +75,74 @@ JOIN DW018_BronzeLH.dbo.em_offers o
 
 *************************************************************************************
 
+-- DW21  CONFX: Date Table
+
+
+WITH initial_dates AS (
+SELECT DATEADD(DAY,value,CONVERT(DATE, '2023-01-01')) AS [date]
+FROM GENERATE_SERIES(0,364,1)
+)
+
+SELECT 
+     [date]
+    , date_key = CAST(CONVERT(VARCHAR(8), [date], 112) AS INT)
+    , day = DAY([date])
+    , month = MONTH([date])
+    , year = YEAR([date])
+FROM initial_dates
+;
+
+
+
+CREATE PROCEDURE dbo.p_generate_date_dim 
+@start_date VARCHAR(20),
+@number_of_days INT
+AS
+
+DROP TABLE IF EXISTS dbo.date_dimension;
+
+WITH initial_dates AS (
+SELECT DATEADD(DAY,value,CONVERT(DATE, @start_date)) AS [date]
+FROM GENERATE_SERIES(0,@number_of_days - 1, 1)
+)
+
+SELECT 
+     [date]
+    , date_key = CAST(CONVERT(VARCHAR(8), [date], 112) AS INT)
+    , day = DAY([date])
+    , month = MONTH([date])
+    , year = YEAR([date])
+INTO dbo.date_dimension
+FROM initial_dates
+;
+
+
+
+EXEC dbo.p_generate_date_dim @start_date='2024-10-01', @number_of_days=5 ;
+
+
+SELECT * FROM dbo.date_dimension;
+
+
+
+*************************************************************************************
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
