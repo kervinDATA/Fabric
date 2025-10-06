@@ -1,0 +1,256 @@
+Notebook - PySpark6 Validation Script
+
+
+********
+df0 = (
+    spark.read.format("csv")
+        .option("header","true")
+        .option("inferSchema", True)
+        .load("Files/LH012_audible_uncleaned.csv")
+)
+
+display(df0)
+
+
+
+-------------------------------------------------------------------------------------------------------
+
+Task: Clean the data!
+Your task is to use all your knowledge you've gained so far (and maybe some more!) to create a new, cleaned dataframe called audible_cleaned (Important that you call the final output dataframe audible_cleaned, because that's what the validation script uses).
+
+Your audible_cleaned dataframe should align to the following requirements:
+
+The final dataset should have the following columns:
+
+AudiobookId - integer value from 0, rising upwards
+BookName - the name of the (audio) book
+PrimaryAuthor - the name of the Primary Author (the first one mentioned), with space-separated name like "Rick Riordan"
+DurationMinutes - the total length of the audiobook in minutes
+ReleaseDate - the release data of the Audiobook
+Language - the language of the Audiobook
+Price - an integer value from the price column
+Rating - a representation of the Rating (of type Float)
+NoOfRatings - from the stars column - integer value.
+You can use the following image as a guide:
+
+
+
+
+
+Validation
+At the bottom of this notebook, I have included a validation function.
+
+Pass your final dataset into the function (as a Spark Dataframe). If you pass all the tests, you have successfully passed this tutorial.
+
+
+
+
+
+
+*************************
+from pyspark.sql.functions import regexp_replace, split, col
+
+df1 = (
+    df0
+        .withColumn("author", regexp_replace(col("author"), "^Writtenby:", ""))
+        .withColumn("author", split(col("author"), ",")[0])
+        .withColumn("author", regexp_replace(col("author"), "([a-z])([A-Z])", "$1 $2"))
+        .withColumnsRenamed({"name": "BookName", "author": "PrimaryAuthor"})
+)
+
+display(df1)
+
+
+
+********************
+df2 = df1.drop('narrator')
+
+
+*****************
+from pyspark.sql.functions import regexp_extract, col, when
+
+df3 = (
+    df2
+        .withColumn("hours", regexp_extract(col("time"), r"(\d+)\s*hr", 1).cast("int")) 
+        .withColumn("minutes", regexp_extract(col("time"), r"(\d+)\s*min", 1).cast("int"))
+        .fillna({"hours": 0, "minutes": 0})
+        .withColumn("DurationMinutes", (col("hours") * 60) + col("minutes"))
+        .drop("hours", "minutes", "time")
+)
+
+display(df3)
+
+
+
+
+*********************
+from pyspark.sql.functions import to_date
+
+df4 = df3.withColumn("ReleaseDate", to_date("releasedate", "dd-MM-yy"))
+
+display(df4)
+
+
+
+************************************
+df5 = df4.withColumnRenamed("language", "Language") 
+
+display(df5)
+
+
+**************************************
+df6 = (
+    df5
+        .withColumn("Rating", 
+            when(col("stars").contains("Not rated yet"), None)
+            .otherwise(regexp_extract("stars", r"(\d+(\.\d+)?)\s+out", 1)
+        .cast("float")
+        )
+    )
+)
+display(df6)
+
+
+
+********************************
+
+df7 = (
+    df6
+        .withColumn("NoOfRatings", 
+            when(col("stars").contains("Not rated yet"), 0)
+                .otherwise(regexp_extract("stars", r"(\d+)\s+rating[s]?$", 1)
+        .cast("int"))
+        
+    )
+    .drop('stars')
+   
+)
+
+display(df7)
+
+
+
+******************************
+df8 = (
+    df7
+        .withColumn("Price", when(col("price") == "Free", 0)
+            .otherwise(regexp_replace(col("price"), ",", ""))
+        .cast("float")
+    )  
+)
+
+display(df8)
+
+
+
+
+**************************************
+from pyspark.sql import functions as F
+from pyspark.sql.window import Window
+
+windowSpec = Window.orderBy(F.lit(1))  
+df9 = df8.withColumn("AudiobookId", F.row_number().over(windowSpec) - 1)
+
+display(df9)
+
+
+*******************************
+audible_cleaned = df9.select("AudiobookId", "BookName", "PrimaryAuthor", "DurationMinutes", "ReleaseDate", "Language", "Price", "Rating", "NoOFRatings")
+
+display(audible_cleaned)
+
+
+----------------------------------------------------------------------------------------------------
+
+
+Validation script
+Instructions:
+
+Run the following validation cell. It will test your audible_cleaned dataframe, and if you pass all the tests, the function will return a PASS!
+Check the output at the bottom of the cell - if you see five PASSES, congrats!
+
+
+
+***************************
+
+from pyspark.sql import functions as F
+import datetime
+
+# Expected schema and values for the tests
+EXPECTED_DTYPES = [
+    ('AudiobookId', 'int'),
+    ('BookName', 'string'),
+    ('PrimaryAuthor', 'string'),
+    ('DurationMinutes', 'int'),
+    ('ReleaseDate', 'date'),
+    ('Language', 'string'),
+    ('Price', 'float'),
+    ('Rating', 'float'),
+    ('NoOFRatings', 'int')
+]
+
+EXPECTED_MAX_AUDIOBOOK_ID = 87488
+
+EXPECTED_VALUES = {
+    5250: {
+        'AudiobookId': 5250,
+        'BookName': 'The Icebound Land',
+        'PrimaryAuthor': 'John Flanagan',
+        'DurationMinutes': 462,
+        'ReleaseDate': datetime.date(2010, 10, 22),
+        'Language': 'English',
+        'Price': 702.0,
+        'Rating': 5.0,
+        'NoOFRatings': 1
+    },
+    1692: {
+        'AudiobookId': 1692,
+        'BookName': 'I Am Hatzegopteryx',
+        'PrimaryAuthor': 'Tim Bradley',
+        'DurationMinutes': 1,
+        'ReleaseDate': datetime.date(2021, 12, 15),
+        'Language': 'English',
+        'Price': 47.0,
+        'Rating': None,
+        'NoOFRatings': 0
+    },
+    69804: {
+        'AudiobookId': 69804,
+        'BookName': 'The Passion Test',
+        'PrimaryAuthor': 'Janet Bray Attwood',
+        'DurationMinutes': 349,
+        'ReleaseDate': datetime.date(2006, 9, 11),
+        'Language': 'English',
+        'Price': 585.0,
+        'Rating': 4.5,
+        'NoOFRatings': 6
+    }
+}
+
+# Test Functions
+def test_schema(audible_cleaned):
+    result = "Test Passed" if audible_cleaned.dtypes == EXPECTED_DTYPES else "Test Failed: Schema does not match the expected schema."
+    print(f"Test (Schema): {result}")
+
+def test_max_audiobook_id(audible_cleaned):
+    max_value = audible_cleaned.agg(F.max("AudiobookId")).collect()[0][0]
+    result = "Test Passed" if max_value == EXPECTED_MAX_AUDIOBOOK_ID else f"Test Failed: Max AudiobookId is {max_value}, expected {EXPECTED_MAX_AUDIOBOOK_ID}."
+    print(f"Test (Max AudiobookId): {result}")
+
+def test_row_values(audible_cleaned, audiobook_id, expected_values):
+    actual_values = audible_cleaned.filter(audible_cleaned.AudiobookId == audiobook_id).collect()[0].asDict()
+    result = "Test Passed" if actual_values == expected_values else f"Test Failed: AudiobookId {audiobook_id} values do not match expected values."
+    print(f"Test (Values Test for AudiobookId {audiobook_id}): {result}")
+
+# Running the tests
+def run_tests(audible_cleaned):
+    test_schema(audible_cleaned)
+    test_max_audiobook_id(audible_cleaned)
+    for audiobook_id, expected_values in EXPECTED_VALUES.items():
+        test_row_values(audible_cleaned, audiobook_id, expected_values)
+
+# Execute tests
+run_tests(audible_cleaned)
+
+
+
