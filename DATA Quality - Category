@@ -1,0 +1,50 @@
+Seven categories of data quality expectations 
+When most people think about data quality, they think about duplicates, maybe missing values, but we are going to go a lot deeper! 
+Here are seven 'categories' of expectations (by no means exhaustive, but a good starting point): 
+
+**
+Schema Validation - Ensuring a dataset contains the expected number of columns, column names, and column data types. This is especially useful when reading raw files that don't have an embedded schema (like a CSV). 
+
+**
+Missing Data (NULLS) - Ensuring that missing values are identified, especially in columns where NULL values are not expected, and will cause downstream issues. For example, columns on which you plan to join, columns that represent key numeric facts (like revenue, if that's the cornerstone of your analysis).  
+
+**
+Uniqueness (duplicates) - Ensuring that certain columns (or the whole dataset) are free from duplicate values! 
+
+**
+Data Integrity - ensuring that values in the dataset are valid, and numbers that should  add up, do add up! 
+
+**
+Distribution - ensuring the values in your dataset fall within a given range, or within a given mathematical distribution.  
+
+Freshness - ensuring that data meets expectations in terms of freshness (usually dictated by some timestamp value in the dataset). 
+
+**
+Volume - ensuring that the dataset as a whole contains the number of rows you are expecting (or at least within a given range). 
+
+
+
+
+
+----------------------------------------------------------------------------------
+
+Intro to Great Expectations
+At least to begin with in this module, we will be using Great Expectations, and specifically the open-source Python framework, GX Core 1.0. 
+Why use Great Expectations?
+
+**
+Great Expectations is the number one Python package globally for data quality testing. It's a mature framework used by thousands of companies.
+
+**
+GX Core 1.0 (what we'll be using) is completely open-source, so we can use it for free. There is also a Cloud SaaS product, GX Cloud, but it's not required. 
+
+**
+A lot of the data quality tools are similar, I think it's good to learn the most popular one first, then, you can branch out and try other tools once you have a solid foundation in data quality testing.
+
+**
+With Great Expectations, we can validate CSV, JSON, Spark Dataframes, Pandas Dataframes (that we get from Power BI semantic models, using Semantic Link) - pretty much every possible data type you will find in Fabric. This is a huge advantage, because it means you can use ONE TOOL for everything.
+
+**
+Great Expectations, although open-source, is incredibly feature-rich. Yes, it can be used for simple data validation, but it also has functionality for documenting your data, storing and visualizing your test results, performing actions from your tests, and much more. 
+
+
